@@ -6,6 +6,9 @@ export const userRoleEnum = pgEnum('user_role', ['poster', 'worker', 'both']);
 export const taskStatusEnum = pgEnum('task_status', ['open', 'in_progress', 'completed', 'cancelled']);
 export const bidStatusEnum = pgEnum('bid_status', ['pending', 'accepted', 'rejected', 'completed']);
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'completed', 'refunded']);
+export const verificationTypeEnum = pgEnum('verification_type', ['photo', 'video', 'both']);
+export const proofTypeEnum = pgEnum('proof_type', ['photo', 'video']);
+export const verificationDecisionEnum = pgEnum('verification_decision', ['approved', 'disputed', 'rejected']);
 
 // Tables
 export const users = pgTable('users', {
@@ -42,13 +45,19 @@ export const tasks = pgTable('tasks', {
   category: varchar('category', { length: 100 }).notNull(), // 'cleaning', 'repair', 'moving', etc.
   budget: integer('budget').notNull(), // cents
   location: varchar('location', { length: 255 }).notNull(),
+  city: varchar('city', { length: 120 }).notNull().default(''),
+  state: varchar('state', { length: 2 }).notNull().default('AR'),
+  address_line1: varchar('address_line1', { length: 255 }),
+  address_line2: varchar('address_line2', { length: 255 }),
+  postal_code: varchar('postal_code', { length: 20 }),
+  verification_type: verificationTypeEnum('verification_type').notNull().default('photo'),
   latitude: real('latitude'),
   longitude: real('longitude'),
   status: taskStatusEnum('status').notNull().default('open'),
   created_at: timestamp('created_at').notNull().defaultNow(),
   deadline: timestamp('deadline'),
   completed_at: timestamp('completed_at'),
-  accepted_bid_id: serial('accepted_bid_id').references(() => bids.id),
+  accepted_bid_id: integer('accepted_bid_id').references(() => bids.id),
 });
 
 export const bids = pgTable('bids', {
@@ -94,6 +103,26 @@ export const payments = pgTable('payments', {
   completed_at: timestamp('completed_at'),
 });
 
+export const task_proofs = pgTable('task_proofs', {
+  id: serial('id').primaryKey(),
+  task_id: serial('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  submitted_by_user_id: serial('submitted_by_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  proof_type: proofTypeEnum('proof_type').notNull(),
+  proof_url: text('proof_url').notNull(),
+  note: text('note'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const verification_decisions = pgTable('verification_decisions', {
+  id: serial('id').primaryKey(),
+  task_id: serial('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  proof_id: serial('proof_id').references(() => task_proofs.id, { onDelete: 'set null' }),
+  decided_by_user_id: serial('decided_by_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  decision: verificationDecisionEnum('decision').notNull(),
+  reason: text('reason'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(user_profiles),
@@ -112,6 +141,8 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   bids: many(bids),
   messages: many(messages),
   reviews: many(reviews),
+  proofs: many(task_proofs),
+  verification_decisions: many(verification_decisions),
 }));
 
 export const bidsRelations = relations(bids, ({ one }) => ({
@@ -135,4 +166,16 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   task: one(tasks, { fields: [payments.task_id], references: [tasks.id] }),
   payer: one(users, { fields: [payments.payer_id], references: [users.id], relationName: 'payer' }),
   payee: one(users, { fields: [payments.payee_id], references: [users.id], relationName: 'payee' }),
+}));
+
+export const taskProofsRelations = relations(task_proofs, ({ one, many }) => ({
+  task: one(tasks, { fields: [task_proofs.task_id], references: [tasks.id] }),
+  submitted_by: one(users, { fields: [task_proofs.submitted_by_user_id], references: [users.id] }),
+  decisions: many(verification_decisions),
+}));
+
+export const verificationDecisionsRelations = relations(verification_decisions, ({ one }) => ({
+  task: one(tasks, { fields: [verification_decisions.task_id], references: [tasks.id] }),
+  proof: one(task_proofs, { fields: [verification_decisions.proof_id], references: [task_proofs.id] }),
+  decided_by: one(users, { fields: [verification_decisions.decided_by_user_id], references: [users.id] }),
 }));

@@ -1,18 +1,16 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: sworn_work
-      POSTGRES_USER: sworn
-      POSTGRES_PASSWORD: ISwearOnThisWork2026!
+      POSTGRES_DB: ${POSTGRES_DB:-sworn_work}
+      POSTGRES_USER: ${POSTGRES_USER:-sworn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_ME}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sworn"]
+      test: ["CMD-SHELL", "pg_isready -U sworn -d sworn_work"]
       interval: 10s
       timeout: 5s
       retries: 5

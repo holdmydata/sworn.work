@@ -1,65 +1,97 @@
-# Svelte library
+# sworn.work
 
-Everything you need to build a Svelte library, powered by [`sv`](https://npmjs.com/package/sv).
+Hyperlocal task marketplace MVP for Northwest Arkansas, focused on fair pay and verification-first trust.
 
-Read more about creating a library [in the docs](https://svelte.dev/docs/kit/packaging).
+## Stack
+- SvelteKit + TypeScript
+- PostgreSQL + Drizzle ORM
+- Tailwind CSS v4
+- better-auth (currently partially wired; see Notes)
 
-## Creating a project
+## Current MVP Surface
+Public routes:
+- `/`
+- `/how-it-works`
+- `/for-workers`
+- `/tasks`
+- `/tasks/[id]`
 
-If you're seeing this, you've probably already done this step. Congrats!
+Auth routes:
+- `/login`
+- `/signup`
 
-```sh
-# create a new project in the current directory
-npx sv create
+App routes (auth-intended):
+- `/dashboard`
+- `/dashboard/tasks`
+- `/dashboard/messages`
+- `/dashboard/profile`
+- `/tasks/create`
 
-# create a new project in my-app
-npx sv create my-app
+API/ops routes:
+- `/api/health/db`
+
+## Task and Trust Model (In Progress)
+- Public task board shows safe fields only (title, category, budget, city/state, verification type, preview)
+- Exact street address is hidden until assignment logic permits visibility
+- Task verification flow supports:
+  - `verification_type`: `photo` | `video` | `both`
+  - `task_proofs` submissions
+  - `verification_decisions` by poster (`approved` / `disputed` / `rejected`)
+
+## Local Development
+
+### 1) Install
+```bash
+npm install
 ```
 
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-bun x sv@0.12.5 create --template library --types ts --add prettier eslint tailwindcss="plugins:typography,forms" sveltekit-adapter="adapter:node" devtools-json drizzle="database:postgresql+postgresql:postgres.js+docker:yes" better-auth="demo:password" --install bun sworn.work
+### 2) Environment
+Create `.env.local`:
+```bash
+DATABASE_URL="postgres://sworn:CHANGE_ME@localhost:5433/sworn_work"
+ORIGIN="http://localhost:5173"
+BETTER_AUTH_SECRET="REPLACE_WITH_HIGH_ENTROPY_SECRET"
 ```
 
-## Developing
+### 3) Start Postgres (Docker)
+```bash
+npm run db:start
+```
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+### 4) Apply migrations
+```bash
+npm run db:migrate
+```
 
-```sh
+### 5) Seed sample tasks
+```bash
+npm run db:seed:sample
+```
+
+### 6) Run app
+```bash
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
+## Useful Commands
+- `npm run db:start` — start postgres via docker compose
+- `npm run db:migrate` — apply Drizzle SQL migrations
+- `npm run db:seed:sample` — seed posters/tasks for testing
+- `npm run db:studio` — open Drizzle Studio
+- `npm run check` — Svelte + TypeScript checks
+- `npm run lint` — Prettier + ESLint
 
-## Building
+## Important Notes
+- `src/hooks.server.ts` is currently a temporary pass-through to avoid a known better-auth package resolution issue in this workspace.
+- Better-auth is scaffolded, but full auth/session wiring is not yet production-ready.
+- There is ongoing TS/module-resolution cleanup work pending, so `npm run check` may report unrelated baseline errors.
 
-To build your library:
+## Security
+- Do not commit `.env.local`
+- Keep `.env.example` placeholder-only
+- Use `PUSH_CHECKLIST.md` before pushing
 
-```sh
-npm pack
-```
-
-To create a production version of your showcase app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
-
-## Publishing
-
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
-
-To publish your library to [npm](https://www.npmjs.com):
-
-```sh
-npm publish
-```
+## Docs
+- `PROJECT.md` — product plan and build status
+- `docs/task-visibility.md` — public vs logged-in field visibility
+- `docs/graphic-style.md` — graphics/copy style guide

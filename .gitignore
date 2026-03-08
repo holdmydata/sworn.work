@@ -9,6 +9,8 @@ node_modules
 /build
 /dist
 
+*.md
+
 # OS
 .DS_Store
 Thumbs.db
