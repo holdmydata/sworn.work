@@ -1,4 +1,4 @@
-import { pgTable, serial, text, varchar, timestamp, integer, real, json, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, varchar, timestamp, integer, real, json, pgEnum, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Enums
@@ -57,12 +57,12 @@ export const tasks = pgTable('tasks', {
   created_at: timestamp('created_at').notNull().defaultNow(),
   deadline: timestamp('deadline'),
   completed_at: timestamp('completed_at'),
-  accepted_bid_id: integer('accepted_bid_id').references(() => bids.id),
+  accepted_bid_id: integer('accepted_bid_id').references((): AnyPgColumn => bids.id),
 });
 
 export const bids = pgTable('bids', {
   id: serial('id').primaryKey(),
-  task_id: serial('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  task_id: serial('task_id').notNull().references((): AnyPgColumn => tasks.id, { onDelete: 'cascade' }),
   worker_id: serial('worker_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   proposed_price: integer('proposed_price').notNull(), // cents
   message: text('message'),

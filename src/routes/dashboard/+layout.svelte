@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import type { LayoutServerData } from './$types';
 
 	let { data, children }: { data: LayoutServerData; children: import('svelte').Snippet } = $props();
@@ -12,7 +11,7 @@
 			<h1 class="text-2xl font-bold tracking-tight">{data.user.name}</h1>
 			<p class="text-sm text-[var(--muted)]">{data.user.email}</p>
 		</div>
-		<form method="post" action="?/signOut" use:enhance>
+		<form method="post" action="/logout">
 			<button class="btn btn-ghost" type="submit">Sign out</button>
 		</form>
 	</header>
