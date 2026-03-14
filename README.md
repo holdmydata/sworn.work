@@ -40,6 +40,10 @@ API/ops routes:
 
 ## Local Development
 
+### Prerequisites
+- Node.js `22.13.x` (use `.nvmrc` with `nvm use`)
+- Docker (for local PostgreSQL)
+
 ### 1) Install
 ```bash
 npm install

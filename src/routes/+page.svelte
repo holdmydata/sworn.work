@@ -1,98 +1,204 @@
 <script lang="ts">
-	const trustSteps = [
-		{ title: 'Post + fund', text: 'Create a task with budget and deadline.', icon: '/graphics/trust/post.svg' },
-		{ title: 'Bid + accept', text: 'Workers bid, poster picks best fit.', icon: '/graphics/trust/verify.svg' },
-		{ title: 'Submit proof', text: 'Photo/video evidence confirms completion.', icon: '/graphics/trust/verify.svg' },
-		{ title: 'Release payment', text: 'Approval releases payout; disputes get review window.', icon: '/graphics/trust/payout.svg' }
+	import QuestCard from '$lib/components/quests/QuestCard.svelte';
+	import type { QuestDifficulty } from '$lib/components/quests/QuestCard.svelte';
+	import type { QuestStatus } from '$lib/components/quests/QuestStatusBadge.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Card from '$lib/components/ui/Card.svelte';
+	import PageContainer from '$lib/components/ui/PageContainer.svelte';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+
+	const fallbackTasks = [
+		{
+			id: 'sample-1',
+			title: 'Move Couch Upstairs',
+			category: 'Home & yard',
+			budgetCents: 8500,
+			city: 'Fayetteville',
+			state: 'AR',
+			status: 'open',
+			createdAt: new Date().toISOString(),
+			descriptionPreview: 'Need one strong helper for a 30-minute move. Stair access only.',
+			verificationType: 'photo'
+		},
+		{
+			id: 'sample-2',
+			title: 'Weekend Dog Walking',
+			category: 'Pet care',
+			budgetCents: 6000,
+			city: 'Springdale',
+			state: 'AR',
+			status: 'open',
+			createdAt: new Date().toISOString(),
+			descriptionPreview: 'Walk two friendly dogs Saturday morning near downtown.',
+			verificationType: 'both'
+		},
+		{
+			id: 'sample-3',
+			title: 'Assemble IKEA Desk',
+			category: 'Errands & support',
+			budgetCents: 7000,
+			city: 'Rogers',
+			state: 'AR',
+			status: 'open',
+			createdAt: new Date().toISOString(),
+			descriptionPreview: 'Need careful assembly with cleanup. Tools preferred but not required.',
+			verificationType: 'video'
+		}
 	];
 
-	const categories = [
-		{ label: 'Home & yard', icon: '/graphics/categories/home-yard.svg' },
-		{ label: 'Errands & support', icon: '/graphics/categories/errands.svg' },
-		{ label: 'Pet care', icon: '/graphics/categories/pet-care.svg' },
-		{ label: 'Skilled trades', icon: '/graphics/categories/skilled-trades.svg' },
-		{ label: 'Tutoring & teaching', icon: '/graphics/categories/tutoring.svg' },
-		{ label: 'Business tasks', icon: '/graphics/categories/business.svg' }
+	const steps = [
+		{
+			title: 'Post a task',
+			text: 'Describe the work, set reward, and publish it to the local board.',
+			icon: '📝'
+		},
+		{
+			title: 'Accept a task',
+			text: 'Workers browse open bounties and submit interest to help.',
+			icon: '🤝'
+		},
+		{
+			title: 'Verify completion',
+			text: 'Proof and review flow confirm the work before payout release.',
+			icon: '✅'
+		}
 	];
+
+	function mapStatus(value: string): QuestStatus {
+		const normalized = value.trim().toLowerCase();
+		if (normalized === 'open') return 'Open';
+		if (normalized === 'accepted') return 'Accepted';
+		if (normalized === 'in_progress' || normalized === 'in progress') return 'In Progress';
+		if (normalized === 'completed') return 'Completed';
+		if (normalized === 'paid') return 'Paid';
+		return 'Open';
+	}
+
+	function mapDifficulty(budgetCents: number): QuestDifficulty {
+		if (budgetCents >= 20000) return 'Hard';
+		if (budgetCents >= 8000) return 'Medium';
+		return 'Easy';
+	}
+
+	function formatPostedAt(iso: string): string {
+		const date = new Date(iso);
+		if (Number.isNaN(date.getTime())) return 'Recently';
+
+		const now = new Date();
+		const dayMs = 24 * 60 * 60 * 1000;
+		const diffDays = Math.floor((date.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) / dayMs);
+		if (diffDays === 0) return 'Today';
+		if (diffDays === -1) return 'Yesterday';
+		return date.toLocaleDateString();
+	}
+
+	function previewTasks() {
+		return data.tasks.length > 0 ? data.tasks : fallbackTasks;
+	}
 </script>
 
-<section class="mx-auto max-w-6xl px-6 py-14 sm:py-20">
-	<header class="mb-16">
-		<p class="eyebrow">Hyperlocal Task Marketplace</p>
-		<h1 class="mt-3 max-w-4xl text-5xl font-bold tracking-tight text-[var(--ink)] sm:text-6xl">
-			Real work for real people in Northwest Arkansas.
-		</h1>
-		<p class="mt-5 max-w-3xl text-lg leading-relaxed text-[var(--muted)]">
-			Sworn connects posters and workers with verified completion, transparent bids, and fair-pay culture. Start local, move fast, and keep trust at the center.
-		</p>
-		<div class="mt-8 flex flex-wrap gap-3">
-			<a href="/signup" class="btn btn-solid">Create Account</a>
-			<a href="/how-it-works" class="btn btn-ghost">See How It Works</a>
+<PageContainer className="max-w-6xl space-y-14 sm:space-y-20">
+	<section
+		class="relative overflow-hidden rounded-3xl border border-slate-700/80 bg-[linear-gradient(135deg,#0f172a,#1e293b)] px-5 py-12 text-slate-100 sm:px-8 sm:py-16"
+		style="box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(255,255,255,0.04) inset;"
+	>
+		<div class="pointer-events-none absolute inset-0">
+			<div class="absolute -left-20 top-0 h-72 w-72 rounded-full bg-orange-500/20 blur-3xl"></div>
+			<div class="absolute right-0 top-10 h-80 w-80 rounded-full bg-amber-200/10 blur-3xl"></div>
+			<div class="absolute bottom-0 left-1/3 h-52 w-52 rounded-full bg-slate-200/10 blur-2xl"></div>
+			<div class="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.04),transparent_35%,rgba(255,255,255,0.03))]"></div>
 		</div>
-	</header>
 
-	<section class="mb-10 grid gap-4 sm:grid-cols-3">
-		<article class="card">
-			<p class="eyebrow">Problem</p>
-			<h2 class="mt-2 text-2xl font-semibold">Displaced workers need options</h2>
-			<p class="mt-2 text-sm text-[var(--muted)]">Automation and layoffs are pushing skilled people into oversaturated fallback gigs.</p>
-		</article>
-		<article class="card">
-			<p class="eyebrow">Gap</p>
-			<h2 class="mt-2 text-2xl font-semibold">Craigslist has no trust layer</h2>
-			<p class="mt-2 text-sm text-[var(--muted)]">Existing local channels lack verification, ratings, and reliable payout flow.</p>
-		</article>
-		<article class="card">
-			<p class="eyebrow">Approach</p>
-			<h2 class="mt-2 text-2xl font-semibold">Verification-first marketplace</h2>
-			<p class="mt-2 text-sm text-[var(--muted)]">Proof of completion + mutual ratings before payment release.</p>
-		</article>
+		<div class="relative z-10 max-w-3xl">
+			<p class="eyebrow text-slate-300">Quest Board For Real Life</p>
+			<h1 class="mt-2 max-w-2xl text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
+				Post local tasks. Find trusted help.
+			</h1>
+			<p class="mt-3 max-w-xl text-sm leading-relaxed text-slate-300 sm:mt-4 sm:max-w-2xl sm:text-lg">
+				A practical task board with quest-board energy: clear rewards, proof-based completion,
+				and a trust-first workflow.
+			</p>
+			<div class="mt-6 flex flex-col gap-3 sm:mt-7 sm:flex-row">
+				<Button href="/tasks" variant="primary" className="w-full sm:w-auto">Browse Bounties</Button>
+				<Button href="/tasks/create" variant="ghost" className="w-full sm:w-auto">Post a Task</Button>
+			</div>
+		</div>
 	</section>
 
-	<section class="mb-10 card">
-		<p class="eyebrow">How Sworn Works</p>
-		<div class="mt-4 grid gap-4 sm:grid-cols-4">
-			{#each trustSteps as step, i}
-				<div>
-					<img src={step.icon} alt={step.title} class="mb-2 h-11 w-11" loading="lazy" />
-					<h3 class="font-semibold">{i + 1}. {step.title}</h3>
-					<p class="mt-1 text-sm text-[var(--muted)]">{step.text}</p>
-				</div>
+	<section class="space-y-6">
+		<div>
+			<p class="eyebrow">Open Bounties</p>
+			<h2 class="text-3xl font-bold tracking-tight text-slate-900">Featured Bounties</h2>
+		</div>
+
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+			{#each previewTasks().slice(0, 6) as task}
+				<QuestCard
+					id={task.id}
+					title={task.title}
+					reward={task.budgetCents / 100}
+					description={task.descriptionPreview || null}
+					location={task.city && task.state ? `${task.city}, ${task.state}` : task.city || task.state || 'Location TBD'}
+					isRemote={false}
+					category={task.category || 'General'}
+					difficulty={mapDifficulty(task.budgetCents)}
+					status={mapStatus(task.status)}
+					postedAt={formatPostedAt(task.createdAt)}
+					href={typeof task.id === 'number' ? `/tasks/${task.id}` : '/tasks'}
+					ctaLabel="View details"
+				/>
+			{/each}
+		</div>
+		<div class="pt-1">
+			<Button href="/tasks" variant="secondary" className="w-full sm:w-auto">View All Tasks</Button>
+		</div>
+	</section>
+
+	<section class="space-y-6">
+		<div>
+			<p class="eyebrow">How Sworn Works</p>
+			<h2 class="text-3xl font-bold tracking-tight text-slate-900">Simple, transparent flow</h2>
+		</div>
+		<div class="grid gap-6 md:grid-cols-3">
+			{#each steps as step, i}
+				<Card as="article" tone="dark" className="border-slate-700/80 bg-slate-900/90 p-5">
+					<div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 text-lg">{step.icon}</div>
+					<p class="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-300">Step {i + 1}</p>
+					<h3 class="mt-1 text-xl font-semibold text-white">{step.title}</h3>
+					<p class="mt-2 text-sm text-slate-300">{step.text}</p>
+				</Card>
 			{/each}
 		</div>
 	</section>
 
-	<section class="mb-10">
-		<p class="eyebrow">Task Categories</p>
-		<div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-			{#each categories as category}
-				<div class="card flex items-center gap-3">
-					<img src={category.icon} alt={category.label} class="h-10 w-10" loading="lazy" />
-					<span class="font-semibold">{category.label}</span>
-				</div>
-			{/each}
-		</div>
+	<section>
+		<Card as="section" tone="dark" className="border-slate-700/80 bg-slate-900/90 p-5 sm:p-6">
+			<div class="flex flex-wrap items-center gap-2">
+				<Badge tone="orange">Trust Model</Badge>
+				<Badge tone="slate">Verification-first</Badge>
+			</div>
+			<h2 class="mt-3 text-3xl font-bold tracking-tight text-white">Built for trust, not just listings</h2>
+			<ul class="mt-4 space-y-2 text-sm text-slate-300">
+				<li>Escrow-funded tasks are the intended payout model.</li>
+				<li>Proof-based completion confirms work before release.</li>
+				<li>Exact addresses stay private until assignment.</li>
+			</ul>
+		</Card>
 	</section>
 
-	<section class="mb-10 grid gap-4 sm:grid-cols-2">
-		<a class="card block" href="/for-workers">
-			<p class="eyebrow">For Workers</p>
-			<h2 class="mt-2 text-2xl font-semibold text-[var(--ink)]">No upfront worker fees</h2>
-			<p class="mt-2 text-sm text-[var(--muted)]">Build local reputation with verified jobs and fair bidding.</p>
-		</a>
-		<a class="card block" href="/how-it-works">
-			<p class="eyebrow">Trust System</p>
-			<h2 class="mt-2 text-2xl font-semibold text-[var(--ink)]">Proof before payout</h2>
-			<p class="mt-2 text-sm text-[var(--muted)]">Photo/video proof + ratings keep both sides accountable.</p>
-		</a>
+	<section>
+		<Card as="section" tone="dark" className="border-slate-700/80 bg-slate-900 p-6 text-center sm:p-8">
+			<h2 class="text-3xl font-bold tracking-tight text-white">Ready to start a quest?</h2>
+			<p class="mx-auto mt-3 max-w-2xl text-sm text-slate-300 sm:text-base">
+				Browse live bounties or post work now and get matched with local help.
+			</p>
+			<div class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+				<Button href="/tasks" variant="primary" className="w-full sm:w-auto">Browse Bounties</Button>
+				<Button href="/tasks/create" variant="ghost" className="w-full sm:w-auto">Post a Task</Button>
+			</div>
+		</Card>
 	</section>
-
-	<section class="card text-center">
-		<h2 class="text-3xl font-bold tracking-tight">Ready to post or find work?</h2>
-		<p class="mx-auto mt-3 max-w-2xl text-[var(--muted)]">Join the first version of Sworn and help build a fair local marketplace in NWA.</p>
-		<div class="mt-6 flex flex-wrap justify-center gap-3">
-			<a href="/signup" class="btn btn-solid">Get Started</a>
-			<a href="/tasks" class="btn btn-ghost">Browse Tasks</a>
-		</div>
-	</section>
-</section>
+</PageContainer>

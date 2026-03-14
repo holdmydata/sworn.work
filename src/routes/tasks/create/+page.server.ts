@@ -32,7 +32,19 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		const title = formData.get('title')?.toString().trim() ?? '';
-		const description = formData.get('description')?.toString().trim() ?? '';
+		const shortDescription = formData.get('short_description')?.toString().trim() ?? '';
+		const fullDescription = formData.get('full_description')?.toString().trim() ?? '';
+		const requirementsNotes = formData.get('requirements_notes')?.toString().trim() ?? '';
+		const legacyDescription = formData.get('description')?.toString().trim() ?? '';
+		const description =
+			legacyDescription ||
+			[
+				shortDescription,
+				fullDescription,
+				requirementsNotes ? `Requirements / notes:\n${requirementsNotes}` : ''
+			]
+				.filter(Boolean)
+				.join('\n\n');
 		const category = formData.get('category')?.toString().trim() ?? '';
 		const city = formData.get('city')?.toString().trim() ?? '';
 		const state = formData.get('state')?.toString().trim().toUpperCase() ?? '';
@@ -42,8 +54,9 @@ export const actions: Actions = {
 		const verificationType = formData.get('verification_type')?.toString().trim() ?? 'photo';
 		const budgetDollars = formData.get('budget')?.toString().trim() ?? '';
 		const deadlineText = formData.get('deadline')?.toString().trim() ?? '';
+		const preferredCompletionAt = formData.get('preferred_completion_at')?.toString().trim() ?? '';
 
-		if (!title || !description || !category || !city || !state || !addressLine1) {
+		if (!title || !description || !category || !city || !state) {
 			return fail(400, { message: 'Please fill all required fields.' });
 		}
 
@@ -56,7 +69,12 @@ export const actions: Actions = {
 			return fail(400, { message: 'Budget must be greater than 0.' });
 		}
 
-		const deadline = deadlineText ? new Date(`${deadlineText}T23:59:59`) : null;
+		const deadlineSource = deadlineText || preferredCompletionAt;
+		const deadline = deadlineSource
+			? deadlineText
+				? new Date(`${deadlineSource}T23:59:59`)
+				: new Date(deadlineSource)
+			: null;
 		if (deadline && Number.isNaN(deadline.getTime())) {
 			return fail(400, { message: 'Invalid deadline date.' });
 		}
@@ -71,7 +89,7 @@ export const actions: Actions = {
 			)
 			values (
 				${userId}, ${title}, ${description}, ${category}, ${budget}, ${publicLocation},
-				${city}, ${state}, ${addressLine1}, ${addressLine2 || null}, ${postalCode || null},
+				${city}, ${state}, ${addressLine1 || null}, ${addressLine2 || null}, ${postalCode || null},
 				${verificationType}, ${deadline ? deadline.toISOString() : null}, null
 			)
 			returning id
