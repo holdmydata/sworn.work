@@ -15,4 +15,4 @@
 	}
 </script>
 
-<p class="text-4xl font-black leading-none tracking-tight text-orange-300 sm:text-5xl">{formatReward(reward)}</p>
+<p class="text-4xl font-bold leading-none tracking-tight text-amber-400 sm:text-5xl">{formatReward(reward)}</p>

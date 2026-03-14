@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
+import { levelTitleFor } from '$lib/server/progression';
 
 function toRows<T>(result: unknown): T[] {
 	if (Array.isArray(result)) return result as T[];
@@ -21,6 +22,12 @@ export type PublicTaskCard = {
 	deadline: string | null;
 	descriptionPreview: string;
 	verificationType: 'photo' | 'video' | 'both';
+	posterName: string;
+	posterAvatarUrl: string | null;
+	posterAverageRating: number | null;
+	posterLevel: number;
+	posterLevelTitle: string | null;
+	posterCompletedQuests: number;
 };
 
 export type TaskDetail = {
@@ -54,8 +61,18 @@ export async function listPublicOpenTasks(limit = 24): Promise<PublicTaskCard[]>
 			t.verification_type,
 			t.status,
 			t.created_at,
-			t.deadline
+			t.deadline,
+			u.name as creator_name,
+			u.avatar_url as creator_avatar_url,
+			coalesce(us.level, 1) as poster_level,
+			coalesce(us.quests_completed, 0) as poster_completed_quests,
+			case
+				when coalesce(us.reviews_received, 0) > 0 then us.average_rating
+				else null
+			end as poster_average_rating
 		from tasks t
+		inner join users u on u.id = t.creator_id
+		left join user_stats us on us.user_id = u.id
 		where t.status = 'open'
 		order by t.created_at desc
 		limit ${limit}
@@ -74,8 +91,18 @@ export async function listPublicOpenTasks(limit = 24): Promise<PublicTaskCard[]>
 			status: String(row.status),
 			createdAt: new Date(String(row.created_at)).toISOString(),
 			deadline: row.deadline ? new Date(String(row.deadline)).toISOString() : null,
-			descriptionPreview: description.length > 140 ? `${description.slice(0, 140)}...` : description,
-			verificationType: String(row.verification_type) as PublicTaskCard['verificationType']
+			descriptionPreview:
+				description.length > 140 ? `${description.slice(0, 140)}...` : description,
+			verificationType: String(row.verification_type) as PublicTaskCard['verificationType'],
+			posterName: String(row.creator_name ?? 'Member'),
+			posterAvatarUrl: row.creator_avatar_url ? String(row.creator_avatar_url) : null,
+			posterAverageRating:
+				row.poster_average_rating === null || row.poster_average_rating === undefined
+					? null
+					: Number(row.poster_average_rating),
+			posterLevel: Number(row.poster_level ?? 1),
+			posterLevelTitle: levelTitleFor(Number(row.poster_level ?? 1)),
+			posterCompletedQuests: Number(row.poster_completed_quests ?? 0)
 		};
 	});
 }

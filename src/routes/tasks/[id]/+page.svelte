@@ -84,12 +84,30 @@
 		return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 	}
 
+	function ratingSummary(value: number | null): string {
+		if (value === null || !Number.isFinite(value)) return '⭐ New user';
+		return `⭐ ${value.toFixed(1)}`;
+	}
+
+	function levelSummary(level: number, title: string | null): string {
+		return title ? `Level ${level} ${title}` : `Level ${level}`;
+	}
+
+	function badgeTextFallback(name: string): string {
+		const words = (name || '').trim().split(/\s+/).filter(Boolean);
+		if (words.length === 0) return 'BG';
+		if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+		return `${words[0][0] ?? ''}${words[words.length - 1][0] ?? ''}`.toUpperCase();
+	}
+
 	function nextStepMessage(data: PageData): string {
 		const status = data.task.status.toLowerCase();
-		if (!data.isLoggedIn) return 'Sign in to accept quests, submit completion updates, and review status.';
+		if (!data.isLoggedIn)
+			return 'Sign in to accept quests, submit completion updates, and review status.';
 		if (data.isPoster) {
 			if (status === 'open') return 'Your quest is live and awaiting acceptance.';
-			if (status === 'completed') return 'Your quest is marked completed. Review the timeline below.';
+			if (status === 'completed')
+				return 'Your quest is marked completed. Review the timeline below.';
 			if (status === 'accepted') return 'Worker has accepted the quest. Waiting for them to begin.';
 			return data.acceptedWorkerName
 				? `Accepted by ${data.acceptedWorkerName}. Review completion updates and confirm when done.`
@@ -165,7 +183,7 @@
 			<div class="mt-4">
 				<QuestReward reward={data.task.budgetCents / 100} />
 			</div>
-			<h1 class="mt-4 text-3xl font-bold leading-tight text-white sm:text-4xl">
+			<h1 class="mt-4 text-3xl leading-tight font-bold text-white sm:text-4xl">
 				{data.task.title || 'Untitled Task'}
 			</h1>
 			<p class="mt-2 text-sm text-slate-300">
@@ -179,20 +197,22 @@
 
 		<Card as="section" tone="dark" className="border-slate-700/80 p-5 sm:p-6">
 			<h2 class="text-xl font-semibold text-white">Task Details</h2>
-			<p class="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-300">
+			<p class="mt-3 text-sm leading-relaxed whitespace-pre-line text-slate-300">
 				{data.task.description || 'No detailed description provided yet.'}
 			</p>
 
-				<div class="mt-4 flex flex-wrap items-center gap-2">
-					<Badge tone="slate">{data.task.category || 'General'}</Badge>
-					<Badge tone={difficultyTone(difficultyFromBudget(data.task.budgetCents))}
-						>{difficultyFromBudget(data.task.budgetCents)}</Badge
-					>
-					<Badge tone="slate">Optional supporting proof: {data.task.verificationType}</Badge>
-				</div>
+			<div class="mt-4 flex flex-wrap items-center gap-2">
+				<Badge tone="slate">{data.task.category || 'General'}</Badge>
+				<Badge tone={difficultyTone(difficultyFromBudget(data.task.budgetCents))}
+					>{difficultyFromBudget(data.task.budgetCents)}</Badge
+				>
+				<Badge tone="slate">Optional supporting proof: {data.task.verificationType}</Badge>
+			</div>
 
 			<div class="mt-5 rounded-xl border border-slate-700 bg-slate-800/70 p-4">
-				<h3 class="text-sm font-semibold uppercase tracking-wide text-slate-200">Requirements / Notes</h3>
+				<h3 class="text-sm font-semibold tracking-wide text-slate-200 uppercase">
+					Requirements / Notes
+				</h3>
 				<ul class="mt-3 space-y-2 text-sm text-slate-300">
 					<li>Submit a completion note when work is done (attachments optional).</li>
 					{#if data.task.deadline}
@@ -221,11 +241,18 @@
 						Local (remote indicator not yet modeled)
 					</li>
 				</ul>
-				<div class="mt-4 rounded-xl border border-slate-700 bg-slate-800/70 p-3 text-sm text-slate-300">
+				<div
+					class="mt-4 rounded-xl border border-slate-700 bg-slate-800/70 p-3 text-sm text-slate-300"
+				>
 					<p class="font-medium text-slate-100">Address visibility</p>
 					{#if data.canViewExactAddress}
 						<p class="mt-1">
-							{data.task.addressLine1 || 'Address unavailable'}{#if data.task.addressLine2}, {data.task.addressLine2}{/if}, {locationFrom(data.task.city, data.task.state)}{#if data.task.postalCode} {data.task.postalCode}{/if}
+							{data.task.addressLine1 || 'Address unavailable'}{#if data.task.addressLine2}, {data
+									.task.addressLine2}{/if}, {locationFrom(
+								data.task.city,
+								data.task.state
+							)}{#if data.task.postalCode}
+								{data.task.postalCode}{/if}
 						</p>
 					{:else}
 						<p class="mt-1">Exact street address is hidden until assignment.</p>
@@ -235,84 +262,143 @@
 
 			<Card as="section" tone="dark" className="border-slate-700/80 p-5">
 				<h2 class="text-lg font-semibold text-white">People & Trust</h2>
-				{#if data.isPoster}
-					{#if data.acceptedWorkerName}
-						<p class="mt-3 text-sm text-slate-300">
-							<span class="font-semibold text-slate-100">Accepted worker:</span>
-							{data.acceptedWorkerName}
+				<div class="mt-3 space-y-4">
+					<div class="space-y-1 text-sm text-slate-300">
+						<p>
+							<span class="font-semibold text-slate-100">Posted by:</span>
+							{data.posterTrust?.displayName ?? data.task.creatorName ?? 'Poster'}
 						</p>
-						<p class="mt-2 text-sm text-slate-300">
-							<span class="font-semibold text-slate-100">Worker member since:</span>
-							{memberSince(data.acceptedWorkerJoinedAt)}
-						</p>
-					{:else}
-						<p class="mt-3 text-sm text-slate-300">
-							<span class="font-semibold text-slate-100">Accepted worker:</span>
-							No worker assigned yet.
-						</p>
-					{/if}
-					<p class="mt-2 text-sm text-slate-300">
-						<span class="font-semibold text-slate-100">You posted this quest.</span>
-					</p>
-				{:else if data.isAssignedWorker}
-					<p class="mt-3 text-sm text-slate-300">
-						<span class="font-semibold text-slate-100">Posted by:</span>
-						{data.task.creatorName || 'Poster'}
-					</p>
-					<p class="mt-2 text-sm text-slate-300">
-						<span class="font-semibold text-slate-100">Poster member since:</span>
-						{memberSince(data.creatorJoinedAt)}
-					</p>
-					<p class="mt-2 text-sm text-slate-300">
-						<span class="font-semibold text-slate-100">You accepted this quest.</span>
-					</p>
-				{:else}
-					<p class="mt-3 text-sm text-slate-300">
-						<span class="font-semibold text-slate-100">Posted by:</span>
-						{data.task.creatorName || 'Poster'}
-					</p>
-					<p class="mt-2 text-sm text-slate-300">
-						<span class="font-semibold text-slate-100">Poster member since:</span>
-						{memberSince(data.creatorJoinedAt)}
-					</p>
-					{#if data.acceptedWorkerName}
-						<p class="mt-2 text-sm text-slate-300">
-							<span class="font-semibold text-slate-100">Accepted by:</span>
-							{data.acceptedWorkerName}
-						</p>
-					{:else}
-						<p class="mt-2 text-sm text-slate-300">
-							<span class="font-semibold text-slate-100">Accepted by:</span>
-							No worker assigned yet.
-						</p>
-					{/if}
-				{/if}
+						{#if data.posterTrust}
+							<p>
+								{ratingSummary(data.posterTrust.averageRating)} • {levelSummary(
+									data.posterTrust.level,
+									data.posterTrust.levelTitle
+								)}
+							</p>
+							<p>Member since {memberSince(data.posterTrust.memberSince)}</p>
+							{#if data.posterTrust.badges.length > 0}
+								<div class="pt-1">
+									<p class="text-xs font-semibold tracking-wide text-slate-400 uppercase">Badges</p>
+									<div class="mt-2 flex flex-wrap gap-2">
+										{#each data.posterTrust.badges as badge}
+											<div
+												class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm text-slate-200"
+												title={badge.description}
+											>
+												{#if badge.imageUrl}
+													<img
+														src={badge.imageUrl}
+														alt={badge.name}
+														class="h-5 w-5 rounded-full object-cover"
+														loading="lazy"
+													/>
+												{:else if badge.iconValue}
+													<span class="text-sm" aria-hidden="true">{badge.iconValue}</span>
+												{:else}
+													<span class="text-[10px] font-semibold tracking-wide text-slate-300">
+														{badgeTextFallback(badge.name)}
+													</span>
+												{/if}
+												<span class="font-medium">{badge.name}</span>
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						{/if}
+					</div>
+
+					<div class="border-t border-slate-700/70 pt-4">
+						{#if data.acceptedWorkerTrust}
+							<div class="space-y-1 text-sm text-slate-300">
+								<p>
+									<span class="font-semibold text-slate-100">Accepted worker:</span>
+									{data.acceptedWorkerTrust.displayName}
+								</p>
+								<p>
+									{ratingSummary(data.acceptedWorkerTrust.averageRating)} • {levelSummary(
+										data.acceptedWorkerTrust.level,
+										data.acceptedWorkerTrust.levelTitle
+									)}
+								</p>
+								<p>Member since {memberSince(data.acceptedWorkerTrust.memberSince)}</p>
+								{#if data.acceptedWorkerTrust.badges.length > 0}
+									<div class="pt-1">
+										<p class="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+											Badges
+										</p>
+										<div class="mt-2 flex flex-wrap gap-2">
+											{#each data.acceptedWorkerTrust.badges as badge}
+												<div
+													class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm text-slate-200"
+													title={badge.description}
+												>
+													{#if badge.imageUrl}
+														<img
+															src={badge.imageUrl}
+															alt={badge.name}
+															class="h-5 w-5 rounded-full object-cover"
+															loading="lazy"
+														/>
+													{:else if badge.iconValue}
+														<span class="text-sm" aria-hidden="true">{badge.iconValue}</span>
+													{:else}
+														<span class="text-[10px] font-semibold tracking-wide text-slate-300">
+															{badgeTextFallback(badge.name)}
+														</span>
+													{/if}
+													<span class="font-medium">{badge.name}</span>
+												</div>
+											{/each}
+										</div>
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<p class="text-sm text-slate-300">No worker assigned yet.</p>
+						{/if}
+					</div>
+				</div>
 			</Card>
 		</div>
 
 		<Card as="section" tone="dark" className="border-slate-700/80 p-5 sm:p-6">
 			<h2 class="text-lg font-semibold text-white">Next Step</h2>
 			<p class="mt-2 text-sm text-slate-300">{nextStepMessage(data)}</p>
-				<div class="mt-4">
-					{#if data.isPoster}
-						<div class="flex flex-wrap items-center gap-2">
-							<Badge tone="slate">Your Quest</Badge>
-							<Button href={`/tasks/${data.task.id}/manage`} variant="secondary" className="w-full sm:w-auto">Manage Task</Button>
-						</div>
-					{:else if data.isAssignedWorker && normalizedTaskStatus() === 'accepted'}
-						<form method="post" action="?/startQuest">
-							<Button type="submit" variant="primary" className="w-full sm:w-auto">Start Quest</Button>
-						</form>
-					{:else if data.hasAcceptedWorker}
-						<Badge tone={statusTone(data.task.status)}>{statusLabel(data.task.status)}</Badge>
-					{:else if data.isLoggedIn}
+			<div class="mt-4">
+				{#if data.isPoster}
+					<div class="flex flex-wrap items-center gap-2">
+						<Badge tone="slate">Your Quest</Badge>
+						<Button
+							href={`/tasks/${data.task.id}/manage`}
+							variant="secondary"
+							className="w-full sm:w-auto">Manage Task</Button
+						>
+					</div>
+				{:else if data.isAssignedWorker && normalizedTaskStatus() === 'accepted'}
+					<form method="post" action="?/startQuest">
+						<Button type="submit" variant="primary" className="w-full sm:w-auto">Start Quest</Button
+						>
+					</form>
+				{:else if data.hasAcceptedWorker}
+					<Badge tone={statusTone(data.task.status)}>{statusLabel(data.task.status)}</Badge>
+				{:else if data.isLoggedIn}
 					<form method="post" action="?/acceptQuest" use:enhance={enhanceAcceptQuest}>
-						<Button type="submit" variant="primary" className="w-full sm:w-auto" disabled={isAccepting}>
+						<Button
+							type="submit"
+							variant="primary"
+							className="w-full sm:w-auto"
+							disabled={isAccepting}
+						>
 							{isAccepting ? 'Accepting Quest...' : 'Accept Quest'}
 						</Button>
 					</form>
 				{:else}
-					<Button href={actionHrefFor(data.isLoggedIn)} variant="primary" className="w-full sm:w-auto">
+					<Button
+						href={actionHrefFor(data.isLoggedIn)}
+						variant="primary"
+						className="w-full sm:w-auto"
+					>
 						{actionLabelFor(data.isLoggedIn, data.isPoster, data.task.status)}
 					</Button>
 				{/if}
@@ -320,7 +406,9 @@
 			{#if !data.isLoggedIn}
 				<div class="mt-3 flex flex-col gap-2 sm:flex-row">
 					<Button href="/login" variant="ghost" className="w-full sm:w-auto">Login</Button>
-					<Button href="/signup" variant="secondary" className="w-full sm:w-auto">Create account</Button>
+					<Button href="/signup" variant="secondary" className="w-full sm:w-auto"
+						>Create account</Button
+					>
 				</div>
 			{/if}
 		</Card>
@@ -338,7 +426,9 @@
 			className="space-y-4 border-slate-700/80 bg-slate-900/85 p-5 sm:p-6"
 		>
 			<h2 class="text-xl font-semibold text-white">Completion Updates</h2>
-			<p class="text-sm text-slate-300">Completion notes are the primary submission method. Supporting proof is optional.</p>
+			<p class="text-sm text-slate-300">
+				Completion notes are the primary submission method. Supporting proof is optional.
+			</p>
 			<Card as="div" tone="dark" className="border-slate-700/80 bg-slate-800/70 p-3">
 				<p class="text-sm text-slate-200">{completionGuidance()}</p>
 			</Card>
@@ -346,7 +436,11 @@
 				<div class="grid gap-4 sm:grid-cols-2">
 					{#if data.isAssignedWorker && normalizedTaskStatus() === 'in_progress'}
 						<form method="post" action="?/submitProof" use:enhance>
-							<Card as="div" tone="dark" className="space-y-3 border-slate-700/80 bg-slate-800/70 p-4">
+							<Card
+								as="div"
+								tone="dark"
+								className="space-y-3 border-slate-700/80 bg-slate-800/70 p-4"
+							>
 								<h3 class="font-semibold text-white">Submit completion update</h3>
 								<label class="block text-sm font-medium text-slate-200">
 									Completion note
@@ -367,7 +461,11 @@
 								</label>
 								<label class="block text-sm font-medium text-slate-200">
 									Attachment URL (optional)
-									<input name="attachment_url" class={workflowControlClass} placeholder="https://..." />
+									<input
+										name="attachment_url"
+										class={workflowControlClass}
+										placeholder="https://..."
+									/>
 								</label>
 								<p class="text-xs text-slate-400">
 									Optional supporting proof can be a photo or video link.
@@ -391,17 +489,25 @@
 
 					{#if data.isPoster && normalizedTaskStatus() === 'in_progress'}
 						<form method="post" action="?/approveProof" use:enhance>
-							<Card as="div" tone="dark" className="space-y-3 border-slate-700/80 bg-slate-800/70 p-4">
+							<Card
+								as="div"
+								tone="dark"
+								className="space-y-3 border-slate-700/80 bg-slate-800/70 p-4"
+							>
 								<h3 class="font-semibold text-white">Poster review</h3>
 								{#if data.proofs.length === 0}
-									<p class="text-sm text-slate-300">No completion updates have been submitted yet.</p>
+									<p class="text-sm text-slate-300">
+										No completion updates have been submitted yet.
+									</p>
 								{:else}
 									<label class="block text-sm font-medium text-slate-200">
 										Update to approve
 										<select name="proof_id" class={workflowControlClass}>
 											<option value="">Most recent (or leave blank)</option>
 											{#each data.proofs as proof}
-												<option value={proof.id}>Update #{proof.id} by {proof.submittedByName}</option>
+												<option value={proof.id}
+													>Update #{proof.id} by {proof.submittedByName}</option
+												>
 											{/each}
 										</select>
 									</label>
@@ -414,7 +520,11 @@
 
 				{#if data.isPoster && normalizedTaskStatus() === 'in_progress' && data.proofs.length > 0}
 					<form method="post" action="?/disputeProof" use:enhance>
-						<Card as="div" tone="dark" className="space-y-3 border-slate-700/80 bg-slate-800/70 p-4">
+						<Card
+							as="div"
+							tone="dark"
+							className="space-y-3 border-slate-700/80 bg-slate-800/70 p-4"
+						>
 							<h3 class="font-semibold text-white">Dispute update</h3>
 							<div class="grid gap-3 sm:grid-cols-[1fr_2fr]">
 								<label class="block text-sm font-medium text-slate-200">
@@ -442,7 +552,9 @@
 				{/if}
 			{:else}
 				<Card as="div" tone="dark" className="border-slate-700/80 bg-slate-800/70 p-4">
-					<p class="text-sm text-slate-300">Sign in to submit completion updates and track review decisions.</p>
+					<p class="text-sm text-slate-300">
+						Sign in to submit completion updates and track review decisions.
+					</p>
 				</Card>
 			{/if}
 
@@ -451,7 +563,8 @@
 					<h3 class="font-semibold text-white">Completion timeline</h3>
 					{#if data.proofs.length === 0}
 						<p class="mt-2 text-sm text-slate-300">
-							No completion updates yet. The accepted worker can submit a completion note when work is done.
+							No completion updates yet. The accepted worker can submit a completion note when work
+							is done.
 						</p>
 					{:else}
 						<ul class="mt-3 space-y-2 text-sm text-slate-300">
@@ -459,7 +572,9 @@
 								<li>
 									<strong>Update #{proof.id}</strong> by {proof.submittedByName}<br />
 									{#if proof.proofUrl !== 'about:blank'}
-										<a href={proof.proofUrl} class="underline" target="_blank" rel="noreferrer">Open attachment</a>
+										<a href={proof.proofUrl} class="underline" target="_blank" rel="noreferrer"
+											>Open attachment</a
+										>
 										<span> ({proof.proofType})</span>
 									{:else}
 										<span>No attachment included</span>
@@ -493,7 +608,11 @@
 		</Card>
 
 		{#if normalizedTaskStatus() === 'completed'}
-			<Card as="section" tone="dark" className="space-y-4 border-slate-700/80 bg-slate-900/85 p-5 sm:p-6">
+			<Card
+				as="section"
+				tone="dark"
+				className="space-y-4 border-slate-700/80 bg-slate-900/85 p-5 sm:p-6"
+			>
 				<h2 class="text-xl font-semibold text-white">How did the quest go?</h2>
 				<p class="text-sm text-slate-300">
 					Leave a quick review to help build trust between posters and workers.
@@ -501,8 +620,16 @@
 
 				{#if data.canLeaveReview}
 					<form method="post" action="?/submitReview" use:enhance>
-						<Card as="div" tone="dark" className="space-y-3 border-slate-700/80 bg-slate-800/70 p-4">
-							<p class="text-sm text-slate-300">You're reviewing: <span class="font-semibold text-slate-100">{data.reviewTargetName}</span></p>
+						<Card
+							as="div"
+							tone="dark"
+							className="space-y-3 border-slate-700/80 bg-slate-800/70 p-4"
+						>
+							<p class="text-sm text-slate-300">
+								You're reviewing: <span class="font-semibold text-slate-100"
+									>{data.reviewTargetName}</span
+								>
+							</p>
 							<label class="block text-sm font-medium text-slate-200">
 								Star rating
 								<select name="rating" required class={workflowControlClass}>

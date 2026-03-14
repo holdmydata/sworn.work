@@ -3,6 +3,13 @@ import { sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { toRows } from '$lib/server/db/result';
 import { getTaskWorkflowData } from '$lib/server/tasks/workflow';
+import {
+	BASE_APPROVAL_XP,
+	FIVE_STAR_BONUS_XP,
+	calculateLevelFromXp,
+	levelTitleFor
+} from '$lib/server/progression';
+import { awardMvpBadgesForUser, listEarnedBadgesForUser } from '$lib/server/badges';
 import { findAppUserIdByEmail, getOrCreateAppUserId } from '$lib/server/tasks/users';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -18,6 +25,67 @@ async function hasAcceptedTaskStatus(): Promise<boolean> {
 	`);
 	const rows = toRows<Record<string, unknown>>(result);
 	return Boolean(rows[0]?.has_accepted);
+}
+
+async function addXpToUserStats(userId: number, xpDelta: number): Promise<void> {
+	if (!Number.isInteger(userId) || userId <= 0 || !Number.isFinite(xpDelta) || xpDelta <= 0) {
+		return;
+	}
+
+	await db.execute(sql`
+		insert into user_stats (user_id, xp, level)
+		values (${userId}, ${xpDelta}, ${calculateLevelFromXp(xpDelta)})
+		on conflict (user_id)
+		do update set
+			xp = user_stats.xp + ${xpDelta},
+			level = floor(sqrt(((user_stats.xp + ${xpDelta})::numeric) / 20))::int + 1,
+			updated_at = now()
+	`);
+}
+
+type TrustSummary = {
+	userId: number;
+	displayName: string;
+	memberSince: string | null;
+	averageRating: number | null;
+	level: number;
+	levelTitle: string | null;
+	badges: Awaited<ReturnType<typeof listEarnedBadgesForUser>>;
+};
+
+async function loadTrustSummary(userId: number): Promise<TrustSummary | null> {
+	const result = await db.execute(sql`
+		select
+			u.id,
+			u.name,
+			u.created_at,
+			coalesce(us.level, 1) as level,
+			case
+				when coalesce(us.reviews_received, 0) > 0 then us.average_rating
+				else null
+			end as average_rating
+		from users u
+		left join user_stats us on us.user_id = u.id
+		where u.id = ${userId}
+		limit 1
+	`);
+	const rows = toRows<Record<string, unknown>>(result);
+	if (rows.length === 0) return null;
+
+	const row = rows[0];
+	const level = Number(row.level ?? 1);
+	return {
+		userId: Number(row.id),
+		displayName: String(row.name ?? 'Member'),
+		memberSince: row.created_at ? new Date(String(row.created_at)).toISOString() : null,
+		averageRating:
+			row.average_rating === null || row.average_rating === undefined
+				? null
+				: Number(row.average_rating),
+		level,
+		levelTitle: levelTitleFor(level),
+		badges: await listEarnedBadgesForUser(Number(row.id))
+	};
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -38,7 +106,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	}
 
 	const isPoster = Boolean(appUserId && appUserId === workflow.creatorId);
-	const isAssignedWorker = Boolean(appUserId && workflow.acceptedWorkerId && appUserId === workflow.acceptedWorkerId);
+	const isAssignedWorker = Boolean(
+		appUserId && workflow.acceptedWorkerId && appUserId === workflow.acceptedWorkerId
+	);
 	const canViewExactAddress = isPoster || isAssignedWorker;
 	const hasAcceptedWorker = Boolean(workflow.acceptedWorkerId);
 
@@ -72,11 +142,19 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const isCompleted = workflow.task.status === 'completed';
 	const isParticipant = Boolean(appUserId && (isPoster || isAssignedWorker));
-	const hasReviewedAlready = Boolean(appUserId && reviews.some((review) => review.reviewerId === appUserId));
+	const hasReviewedAlready = Boolean(
+		appUserId && reviews.some((review) => review.reviewerId === appUserId)
+	);
 	const canLeaveReview = Boolean(
 		isCompleted && isParticipant && workflow.acceptedWorkerId && !hasReviewedAlready
 	);
-	const reviewTargetName = isPoster ? (workflow.acceptedWorkerName ?? 'Worker') : workflow.task.creatorName;
+	const reviewTargetName = isPoster
+		? (workflow.acceptedWorkerName ?? 'Worker')
+		: workflow.task.creatorName;
+	const posterTrust = await loadTrustSummary(workflow.creatorId);
+	const acceptedWorkerTrust = workflow.acceptedWorkerId
+		? await loadTrustSummary(workflow.acceptedWorkerId)
+		: null;
 
 	return {
 		task: workflow.task,
@@ -90,6 +168,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		isAssignedWorker,
 		hasAcceptedWorker,
 		canViewExactAddress,
+		posterTrust,
+		acceptedWorkerTrust,
 		reviews,
 		canLeaveReview,
 		reviewTargetName
@@ -176,7 +256,10 @@ export const actions: Actions = {
 				and status::text = 'accepted'
 		`);
 
-		return { success: true, message: 'Quest started. You can now submit completion updates when finished.' };
+		return {
+			success: true,
+			message: 'Quest started. You can now submit completion updates when finished.'
+		};
 	},
 
 	submitProof: async ({ params, request, locals }) => {
@@ -198,7 +281,9 @@ export const actions: Actions = {
 			return fail(403, { message: 'Only the accepted worker can submit completion updates.' });
 		}
 		if (workflow.task.status !== 'in_progress') {
-			return fail(400, { message: 'Completion updates can only be submitted while the task is in progress.' });
+			return fail(400, {
+				message: 'Completion updates can only be submitted while the task is in progress.'
+			});
 		}
 
 		const formData = await request.formData();
@@ -218,8 +303,14 @@ export const actions: Actions = {
 				: workflow.task.verificationType === 'video'
 					? 'video'
 					: 'photo';
-		if (attachmentUrl && workflow.task.verificationType !== 'both' && workflow.task.verificationType !== proofType) {
-			return fail(400, { message: `This task expects ${workflow.task.verificationType} attachments.` });
+		if (
+			attachmentUrl &&
+			workflow.task.verificationType !== 'both' &&
+			workflow.task.verificationType !== proofType
+		) {
+			return fail(400, {
+				message: `This task expects ${workflow.task.verificationType} attachments.`
+			});
 		}
 		const proofUrl = attachmentUrl || 'about:blank';
 
@@ -263,17 +354,29 @@ export const actions: Actions = {
 		if (!resolvedProofId) {
 			return fail(400, { message: 'No completion update could be selected for review.' });
 		}
+		if (!workflow.acceptedWorkerId) {
+			return fail(400, { message: 'This task has no accepted worker to reward.' });
+		}
+
+		const completeTaskResult = await db.execute(sql`
+			update tasks
+			set status = 'completed', completed_at = now()
+			where id = ${taskId}
+				and status = 'in_progress'
+			returning id
+		`);
+		const completeTaskRows = toRows<Record<string, unknown>>(completeTaskResult);
+		if (completeTaskRows.length === 0) {
+			return fail(409, { message: 'This task is no longer awaiting completion review.' });
+		}
 
 		await db.execute(sql`
 			insert into verification_decisions (task_id, proof_id, decided_by_user_id, decision, reason)
 			values (${taskId}, ${resolvedProofId}, ${appUserId}, 'approved', null)
 		`);
 
-		await db.execute(sql`
-			update tasks
-			set status = 'completed', completed_at = now()
-			where id = ${taskId}
-		`);
+		await addXpToUserStats(workflow.acceptedWorkerId, BASE_APPROVAL_XP);
+		await awardMvpBadgesForUser(workflow.acceptedWorkerId, { sourceTaskId: taskId });
 
 		return { success: true, message: 'Completion approved. Task marked as completed.' };
 	},
@@ -379,6 +482,15 @@ export const actions: Actions = {
 			insert into reviews (task_id, reviewer_id, reviewee_id, rating, comment)
 			values (${taskId}, ${appUserId}, ${reviewedUserId}, ${rating}, ${comment || null})
 		`);
+
+		const isPosterReviewingAssignedWorker =
+			appUserId === workflow.creatorId && reviewedUserId === workflow.acceptedWorkerId;
+		if (isPosterReviewingAssignedWorker && rating === 5) {
+			await addXpToUserStats(reviewedUserId, FIVE_STAR_BONUS_XP);
+		}
+		if (isPosterReviewingAssignedWorker) {
+			await awardMvpBadgesForUser(reviewedUserId, { sourceTaskId: taskId });
+		}
 
 		return { success: true, message: 'Thanks for your review.' };
 	}
