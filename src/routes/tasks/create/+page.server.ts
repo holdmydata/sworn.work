@@ -53,6 +53,9 @@ export const actions: Actions = {
 		const postalCode = formData.get('postal_code')?.toString().trim() ?? '';
 		const verificationType = formData.get('verification_type')?.toString().trim() ?? 'photo';
 		const budgetDollars = formData.get('budget')?.toString().trim() ?? '';
+		const timingMode = formData.get('timing_mode')?.toString().trim() ?? 'flexible';
+		const preferredCompletionDate = formData.get('preferred_completion_date')?.toString().trim() ?? '';
+		const preferredCompletionTime = formData.get('preferred_completion_time')?.toString().trim() ?? '';
 		const deadlineText = formData.get('deadline')?.toString().trim() ?? '';
 		const preferredCompletionAt = formData.get('preferred_completion_at')?.toString().trim() ?? '';
 
@@ -69,12 +72,23 @@ export const actions: Actions = {
 			return fail(400, { message: 'Budget must be greater than 0.' });
 		}
 
-		const deadlineSource = deadlineText || preferredCompletionAt;
-		const deadline = deadlineSource
-			? deadlineText
-				? new Date(`${deadlineSource}T23:59:59`)
-				: new Date(deadlineSource)
-			: null;
+		let deadline: Date | null = null;
+		if (timingMode === 'date') {
+			if (!preferredCompletionDate) {
+				return fail(400, { message: 'Please select a target date or choose Flexible timing.' });
+			}
+			deadline = new Date(`${preferredCompletionDate}T23:59:59`);
+		} else if (timingMode === 'date_time') {
+			if (!preferredCompletionDate || !preferredCompletionTime) {
+				return fail(400, { message: 'Please select both a target date and time.' });
+			}
+			deadline = new Date(`${preferredCompletionDate}T${preferredCompletionTime}`);
+		} else if (deadlineText || preferredCompletionAt) {
+			// Backward compatibility for older clients posting legacy fields.
+			const deadlineSource = deadlineText || preferredCompletionAt;
+			deadline = deadlineText ? new Date(`${deadlineSource}T23:59:59`) : new Date(deadlineSource);
+		}
+
 		if (deadline && Number.isNaN(deadline.getTime())) {
 			return fail(400, { message: 'Invalid deadline date.' });
 		}

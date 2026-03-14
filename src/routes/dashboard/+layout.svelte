@@ -12,7 +12,7 @@
 		{ label: 'Overview', href: '/dashboard', status: 'active' as const },
 		{ label: 'My Tasks', href: '/dashboard/tasks', status: 'soon' as const },
 		{ label: 'Messages', href: '/dashboard/messages', status: 'soon' as const },
-		{ label: 'Profile', href: '/dashboard/profile', status: 'soon' as const }
+		{ label: 'Profile', href: '/profile', status: 'active' as const }
 	];
 </script>
 

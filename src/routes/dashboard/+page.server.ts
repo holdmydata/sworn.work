@@ -12,6 +12,9 @@ type DashboardQuest = {
 	city: string;
 	state: string;
 	status: string;
+	acceptedBidId: number | null;
+	postedByName: string;
+	acceptedByName: string | null;
 	createdAt: string;
 	descriptionPreview: string;
 };
@@ -26,75 +29,33 @@ function mapRows(result: unknown): DashboardQuest[] {
 		city: String(row.city ?? ''),
 		state: String(row.state ?? ''),
 		status: String(row.status ?? 'open'),
+		acceptedBidId: row.accepted_bid_id ? Number(row.accepted_bid_id) : null,
+		postedByName: String(row.posted_by_name ?? 'Poster'),
+		acceptedByName: row.accepted_by_name ? String(row.accepted_by_name) : null,
 		createdAt: new Date(String(row.created_at ?? new Date().toISOString())).toISOString(),
 		descriptionPreview: String(row.description_preview ?? '')
 	}));
 }
 
-function sampleData() {
-	const now = new Date().toISOString();
-	return {
-		activeQuests: [
-			{
-				id: -1,
-				title: 'Sample: Furniture Move Support',
-				category: 'Home & yard',
-				budgetCents: 9000,
-				city: 'Fayetteville',
-				state: 'AR',
-				status: 'in_progress',
-				createdAt: now,
-				descriptionPreview: 'This placeholder appears until user-task relationships are fully wired.'
-			}
-		],
-		awaitingConfirmationQuests: [
-			{
-				id: -2,
-				title: 'Sample: Proof Submitted Task',
-				category: 'Errands & support',
-				budgetCents: 6500,
-				city: 'Springdale',
-				state: 'AR',
-				status: 'in_progress',
-				createdAt: now,
-				descriptionPreview: 'Awaiting poster confirmation placeholder for MVP dashboard state.'
-			}
-		],
-		completedQuests: [
-			{
-				id: -3,
-				title: 'Sample: Completed Yard Cleanup',
-				category: 'Home & yard',
-				budgetCents: 12000,
-				city: 'Rogers',
-				state: 'AR',
-				status: 'completed',
-				createdAt: now,
-				descriptionPreview: 'Completed quest placeholder for dashboard visualization.'
-			}
-		],
-		usesFallback: true
-	};
-}
-
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user?.email) {
 		return {
-			activeQuests: [],
-			awaitingConfirmationQuests: [],
-			completedQuests: [],
-			usesFallback: false
+			myPostedTasks: [],
+			myActiveQuests: [],
+			completedQuests: []
 		};
 	}
 
 	const appUserId = await findAppUserIdByEmail(locals.user.email);
 	if (!appUserId) {
-		return sampleData();
+		return {
+			myPostedTasks: [],
+			myActiveQuests: [],
+			completedQuests: []
+		};
 	}
 
-	// NOTE: This is an MVP relationship query based on accepted_bid_id -> bids.worker_id.
-	// As dashboard ownership/history matures, this should move into dedicated task-workflow queries.
-	const activeResult = await db.execute(sql`
+	const postedResult = await db.execute(sql`
 		select
 			t.id,
 			t.title,
@@ -103,22 +64,22 @@ export const load: PageServerLoad = async ({ locals }) => {
 			t.city,
 			t.state,
 			t.status,
+			t.accepted_bid_id,
+			poster.name as posted_by_name,
+			worker.name as accepted_by_name,
 			t.created_at,
 			left(t.description, 140) as description_preview
 		from tasks t
-		inner join bids b on b.id = t.accepted_bid_id
-		where b.worker_id = ${appUserId}
-			and t.status = 'in_progress'
-			and not exists (
-				select 1
-				from task_proofs tp
-				where tp.task_id = t.id and tp.submitted_by_user_id = ${appUserId}
-			)
+		inner join users poster on poster.id = t.creator_id
+		left join bids ab on ab.id = t.accepted_bid_id
+		left join users worker on worker.id = ab.worker_id
+		where t.creator_id = ${appUserId}
+			and t.status::text in ('open', 'accepted', 'in_progress')
 		order by t.created_at desc
 		limit 24
 	`);
 
-	const awaitingResult = await db.execute(sql`
+	const acceptedResult = await db.execute(sql`
 		select
 			t.id,
 			t.title,
@@ -127,22 +88,19 @@ export const load: PageServerLoad = async ({ locals }) => {
 			t.city,
 			t.state,
 			t.status,
+			t.accepted_bid_id,
+			poster.name as posted_by_name,
+			worker.name as accepted_by_name,
 			t.created_at,
 			left(t.description, 140) as description_preview
 		from tasks t
 		inner join bids b on b.id = t.accepted_bid_id
+		inner join users poster on poster.id = t.creator_id
+		left join users worker on worker.id = b.worker_id
 		where b.worker_id = ${appUserId}
-			and t.status = 'in_progress'
-			and exists (
-				select 1
-				from task_proofs tp
-				where tp.task_id = t.id and tp.submitted_by_user_id = ${appUserId}
-			)
-			and not exists (
-				select 1
-				from verification_decisions vd
-				where vd.task_id = t.id and vd.decision = 'approved'
-			)
+			and t.accepted_bid_id is not null
+			and t.status <> 'completed'
+			and t.status <> 'cancelled'
 		order by t.created_at desc
 		limit 24
 	`);
@@ -156,28 +114,33 @@ export const load: PageServerLoad = async ({ locals }) => {
 			t.city,
 			t.state,
 			t.status,
+			t.accepted_bid_id,
+			poster.name as posted_by_name,
+			worker.name as accepted_by_name,
 			t.created_at,
 			left(t.description, 140) as description_preview
 		from tasks t
 		inner join bids b on b.id = t.accepted_bid_id
+		inner join users poster on poster.id = t.creator_id
+		left join users worker on worker.id = b.worker_id
 		where b.worker_id = ${appUserId}
 			and t.status = 'completed'
 		order by t.created_at desc
 		limit 24
 	`);
 
-	const activeQuests = mapRows(activeResult);
-	const awaitingConfirmationQuests = mapRows(awaitingResult);
-	const completedQuests = mapRows(completedResult);
+	const postedTasks = mapRows(postedResult);
+	const acceptedTasks = mapRows(acceptedResult);
+	const completedTasks = mapRows(completedResult);
 
-	if (activeQuests.length === 0 && awaitingConfirmationQuests.length === 0 && completedQuests.length === 0) {
-		return sampleData();
-	}
+	// Completion attribution currently comes from accepted worker relationship (accepted_bid_id -> bids.worker_id).
+	const myPostedTasks = postedTasks;
+	const myActiveQuests = acceptedTasks;
+	const completedQuests = completedTasks;
 
 	return {
-		activeQuests,
-		awaitingConfirmationQuests,
-		completedQuests,
-		usesFallback: false
+		myPostedTasks,
+		myActiveQuests,
+		completedQuests
 	};
 };

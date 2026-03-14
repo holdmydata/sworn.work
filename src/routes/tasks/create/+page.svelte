@@ -8,6 +8,7 @@
 
 	let { form }: { form: ActionData } = $props();
 	let rewardAmount = $state('');
+	let timingMode = $state<'flexible' | 'date' | 'date_time'>('flexible');
 
 	const controlClass =
 		'mt-1 block min-h-11 w-full rounded-xl border border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-400 focus:border-orange-300 focus:outline-none focus:ring-1 focus:ring-orange-300';
@@ -178,26 +179,50 @@
 				{:else}
 					<Badge tone="orange">Reward will be highlighted on the task board</Badge>
 				{/if}
-				<Badge tone="slate">Difficulty is a placeholder for now</Badge>
 			</div>
 		</Card>
 
 		<Card as="section" tone="dark" className="border-slate-700/80 p-5 sm:p-6">
 			<h2 class="text-xl font-semibold text-white">5. Timing</h2>
-			<label class="mt-4 block text-sm font-medium text-slate-200">
-				Preferred completion date/time
-				<input name="preferred_completion_at" type="datetime-local" class={controlClass} />
-			</label>
+			<div class="mt-4 space-y-4">
+				<label class="block text-sm font-medium text-slate-200">
+					Completion timing
+					<select name="timing_mode" bind:value={timingMode} class={controlClass}>
+						<option value="flexible">Flexible timing</option>
+						<option value="date">Specific date</option>
+						<option value="date_time">Specific date and time</option>
+					</select>
+				</label>
+
+				{#if timingMode === 'date'}
+					<label class="block text-sm font-medium text-slate-200">
+						Target date
+						<input name="preferred_completion_date" type="date" class={controlClass} />
+					</label>
+				{:else if timingMode === 'date_time'}
+					<div class="grid gap-4 sm:grid-cols-2">
+						<label class="block text-sm font-medium text-slate-200">
+							Target date
+							<input name="preferred_completion_date" type="date" class={controlClass} />
+						</label>
+						<label class="block text-sm font-medium text-slate-200">
+							Target time
+							<input name="preferred_completion_time" type="time" class={controlClass} />
+						</label>
+					</div>
+				{/if}
+			</div>
 		</Card>
 
 		<Card as="section" tone="dark" className="border-slate-700/80 p-5 sm:p-6">
 			<h2 class="text-xl font-semibold text-white">6. Trust & Confirmation</h2>
 			<p class="mt-3 text-sm text-slate-300">
-				Tasks are designed to be escrow funded and verified before completion confirmation.
+				Task details stay private until assignment, and clear requirements help both sides move faster.
 			</p>
 			<ul class="mt-3 space-y-2 text-sm text-slate-300">
 				<li>Exact address details stay private until assignment.</li>
 				<li>Clear instructions improve acceptance speed and work quality.</li>
+				<li>Payment and trust protections will expand as platform workflows mature.</li>
 			</ul>
 		</Card>
 

@@ -22,6 +22,7 @@
 			<a href="/tasks" class={navClass('/tasks', 'ghost', true)}>Tasks</a>
 			{#if data.user}
 				<a href="/dashboard" class={navClass('/dashboard')}>Dashboard</a>
+				<a href="/profile" class={navClass('/profile')}>Profile</a>
 				<a href="/tasks/create" class={navClass('/tasks/create', 'solid')} aria-current={page.url.pathname.startsWith('/tasks/create') ? 'page' : undefined}>Post Task</a>
 			{:else}
 				<a href="/how-it-works" class={navClass('/how-it-works')}>How It Works</a>

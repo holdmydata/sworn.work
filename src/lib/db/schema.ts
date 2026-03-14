@@ -3,7 +3,7 @@ import { relations } from 'drizzle-orm';
 
 // Enums
 export const userRoleEnum = pgEnum('user_role', ['poster', 'worker', 'both']);
-export const taskStatusEnum = pgEnum('task_status', ['open', 'in_progress', 'completed', 'cancelled']);
+export const taskStatusEnum = pgEnum('task_status', ['open', 'accepted', 'in_progress', 'completed', 'cancelled']);
 export const bidStatusEnum = pgEnum('bid_status', ['pending', 'accepted', 'rejected', 'completed']);
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'completed', 'refunded']);
 export const verificationTypeEnum = pgEnum('verification_type', ['photo', 'video', 'both']);

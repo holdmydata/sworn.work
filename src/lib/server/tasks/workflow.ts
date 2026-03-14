@@ -31,8 +31,11 @@ export type VerificationDecision = {
 export type TaskWorkflowData = {
 	task: TaskDetail;
 	creatorId: number;
+	creatorJoinedAt: string | null;
 	acceptedBidId: number | null;
 	acceptedWorkerId: number | null;
+	acceptedWorkerName: string | null;
+	acceptedWorkerJoinedAt: string | null;
 	proofs: TaskProof[];
 	decisions: VerificationDecision[];
 };
@@ -57,10 +60,14 @@ export async function getTaskWorkflowData(taskId: number): Promise<TaskWorkflowD
 			t.created_at,
 			t.deadline,
 			u.name as creator_name,
-			ab.worker_id as accepted_worker_id
+			u.created_at as creator_created_at,
+			ab.worker_id as accepted_worker_id,
+			aw.name as accepted_worker_name,
+			aw.created_at as accepted_worker_created_at
 		from tasks t
 		inner join users u on u.id = t.creator_id
 		left join bids ab on ab.id = t.accepted_bid_id
+		left join users aw on aw.id = ab.worker_id
 		where t.id = ${taskId}
 		limit 1
 	`);
@@ -122,8 +129,13 @@ export async function getTaskWorkflowData(taskId: number): Promise<TaskWorkflowD
 			creatorName: String(row.creator_name)
 		},
 		creatorId: Number(row.creator_id),
+		creatorJoinedAt: row.creator_created_at ? new Date(String(row.creator_created_at)).toISOString() : null,
 		acceptedBidId: row.accepted_bid_id ? Number(row.accepted_bid_id) : null,
 		acceptedWorkerId: row.accepted_worker_id ? Number(row.accepted_worker_id) : null,
+		acceptedWorkerName: row.accepted_worker_name ? String(row.accepted_worker_name) : null,
+		acceptedWorkerJoinedAt: row.accepted_worker_created_at
+			? new Date(String(row.accepted_worker_created_at)).toISOString()
+			: null,
 		proofs: proofRows.map((proof) => ({
 			id: Number(proof.id),
 			proofType: proof.proof_type as TaskProof['proofType'],

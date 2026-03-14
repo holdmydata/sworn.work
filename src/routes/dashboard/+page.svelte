@@ -33,6 +33,11 @@
 		if (diffDays === -1) return 'Yesterday';
 		return date.toLocaleDateString();
 	}
+
+	function joinDescription(primary: string, secondary: string): string {
+		if (primary && secondary) return `${primary} ${secondary}`;
+		return primary || secondary;
+	}
 </script>
 
 <section class="space-y-6 sm:space-y-7">
@@ -40,34 +45,61 @@
 		<p class="eyebrow">My Dashboard</p>
 		<h1 class="text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-4xl">Quest Activity</h1>
 		<p class="max-w-2xl text-sm text-[var(--muted)]">
-			Track what you're currently working on, what is awaiting confirmation, and what you already completed.
+			Track what you posted, what you're actively working on, and what you've completed.
 		</p>
-		{#if data.usesFallback}
-			<Card as="div" tone="light" className="max-w-2xl border-[var(--line)] bg-white/65 p-3">
-				<p class="text-xs text-[var(--muted)]">
-					Showing sample quest activity until user-task relationships are fully populated.
-				</p>
-			</Card>
-		{/if}
 	</header>
 
-	<section class="space-y-3">
+	<section id="my-posted-tasks" class="space-y-3">
 		<div>
-			<h2 class="text-2xl font-semibold tracking-tight text-[var(--ink)]">Active Quests</h2>
-			<p class="mt-1 text-sm text-[var(--muted)]">Quests you accepted and are currently working on.</p>
+			<h2 class="text-2xl font-semibold tracking-tight text-[var(--ink)]">My Posted Tasks</h2>
+			<p class="mt-1 text-sm text-[var(--muted)]">Tasks you posted that are open or currently assigned.</p>
 		</div>
-		{#if data.activeQuests.length === 0}
+		{#if data.myPostedTasks.length === 0}
+			<Card as="article" tone="light" className="p-4">
+				<p class="text-sm text-[var(--muted)]">No posted tasks yet. Create one to get started.</p>
+			</Card>
+		{:else}
+			<div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+				{#each data.myPostedTasks as task}
+					<QuestCard
+						id={task.id}
+						title={task.title}
+						reward={task.budgetCents / 100}
+						description={joinDescription(
+							task.acceptedByName ? `Accepted by ${task.acceptedByName}.` : 'Awaiting acceptance.',
+							task.descriptionPreview || ''
+						)}
+						location={task.city && task.state ? `${task.city}, ${task.state}` : task.city || task.state || 'Location TBD'}
+						isRemote={false}
+						category={task.category || 'General'}
+						difficulty={mapDifficulty(task.budgetCents)}
+						status={mapStatus(task.status)}
+						postedAt={formatPostedAt(task.createdAt)}
+						href={task.id > 0 ? `/tasks/${task.id}/manage` : '/tasks'}
+						ctaLabel="Manage Task"
+					/>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
+	<section id="my-active-quests" class="space-y-3">
+		<div>
+			<h2 class="text-2xl font-semibold tracking-tight text-[var(--ink)]">My Active Quests</h2>
+			<p class="mt-1 text-sm text-[var(--muted)]">Tasks you accepted and are currently working on.</p>
+		</div>
+		{#if data.myActiveQuests.length === 0}
 			<Card as="article" tone="light" className="p-4">
 				<p class="text-sm text-[var(--muted)]">No active quests right now.</p>
 			</Card>
 		{:else}
 			<div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-				{#each data.activeQuests as task}
+				{#each data.myActiveQuests as task}
 					<QuestCard
 						id={task.id}
 						title={task.title}
 						reward={task.budgetCents / 100}
-						description={task.descriptionPreview || null}
+						description={joinDescription(`Posted by ${task.postedByName}.`, task.descriptionPreview || '')}
 						location={task.city && task.state ? `${task.city}, ${task.state}` : task.city || task.state || 'Location TBD'}
 						isRemote={false}
 						category={task.category || 'General'}
@@ -84,43 +116,12 @@
 
 	<section class="space-y-3">
 		<div>
-			<h2 class="text-2xl font-semibold tracking-tight text-[var(--ink)]">Awaiting Confirmation</h2>
-			<p class="mt-1 text-sm text-[var(--muted)]">Quests completed by you and waiting for poster approval.</p>
-		</div>
-		{#if data.awaitingConfirmationQuests.length === 0}
-			<Card as="article" tone="light" className="p-4">
-				<p class="text-sm text-[var(--muted)]">No quests awaiting confirmation.</p>
-			</Card>
-		{:else}
-			<div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-				{#each data.awaitingConfirmationQuests as task}
-					<QuestCard
-						id={task.id}
-						title={task.title}
-						reward={task.budgetCents / 100}
-						description={task.descriptionPreview || null}
-						location={task.city && task.state ? `${task.city}, ${task.state}` : task.city || task.state || 'Location TBD'}
-						isRemote={false}
-						category={task.category || 'General'}
-						difficulty={mapDifficulty(task.budgetCents)}
-						status="In Progress"
-						postedAt={formatPostedAt(task.createdAt)}
-						href={task.id > 0 ? `/tasks/${task.id}` : '/tasks'}
-						ctaLabel="View Proof Status"
-					/>
-				{/each}
-			</div>
-		{/if}
-	</section>
-
-	<section class="space-y-3">
-		<div>
-			<h2 class="text-2xl font-semibold tracking-tight text-[var(--ink)]">Completed Quests</h2>
-			<p class="mt-1 text-sm text-[var(--muted)]">Quests you successfully finished.</p>
+			<h2 class="text-2xl font-semibold tracking-tight text-[var(--ink)]">Completed</h2>
+			<p class="mt-1 text-sm text-[var(--muted)]">Tasks you completed successfully.</p>
 		</div>
 		{#if data.completedQuests.length === 0}
 			<Card as="article" tone="light" className="p-4">
-				<p class="text-sm text-[var(--muted)]">No completed quests yet.</p>
+				<p class="text-sm text-[var(--muted)]">No completed tasks yet.</p>
 			</Card>
 		{:else}
 			<div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -129,7 +130,10 @@
 						id={task.id}
 						title={task.title}
 						reward={task.budgetCents / 100}
-						description={task.descriptionPreview || null}
+						description={joinDescription(
+							`Posted by ${task.postedByName}. Completed by you.`,
+							task.descriptionPreview || ''
+						)}
 						location={task.city && task.state ? `${task.city}, ${task.state}` : task.city || task.state || 'Location TBD'}
 						isRemote={false}
 						category={task.category || 'General'}
