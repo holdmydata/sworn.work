@@ -5,6 +5,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
+	import FilterChip from '$lib/components/ui/FilterChip.svelte';
 	import PageContainer from '$lib/components/ui/PageContainer.svelte';
 	import type { PageData } from './$types';
 
@@ -67,6 +68,9 @@
 		}
 	];
 
+	const categoryFilters = ['All', 'Cleaning', 'Handyman', 'Moving', 'Yard Work', 'Tech Help'] as const;
+	let activeCategory = $state<(typeof categoryFilters)[number]>('All');
+
 	function mapStatus(value: string): QuestStatus {
 		const normalized = value.trim().toLowerCase();
 		if (normalized === 'open') return 'Open';
@@ -98,44 +102,77 @@
 	function previewTasks() {
 		return data.tasks.length > 0 ? data.tasks : fallbackTasks;
 	}
+
+	function matchesCategory(taskCategory: string | null | undefined): boolean {
+		if (activeCategory === 'All') return true;
+		const normalized = (taskCategory || '').toLowerCase();
+		if (activeCategory === 'Cleaning') return /clean|maid|housekeep/.test(normalized);
+		if (activeCategory === 'Handyman') return /handyman|repair|fix|assembly|trades/.test(normalized);
+		if (activeCategory === 'Moving') return /move|moving|delivery|haul/.test(normalized);
+		if (activeCategory === 'Yard Work') return /yard|lawn|garden|landscape/.test(normalized);
+		if (activeCategory === 'Tech Help') return /tech|computer|it|support/.test(normalized);
+		return true;
+	}
+
+	const visibleTasks = $derived(previewTasks().filter((task) => matchesCategory(task.category)));
 </script>
 
-<PageContainer className="max-w-6xl space-y-14 sm:space-y-20">
+<PageContainer className="max-w-6xl">
 	<section
-		class="relative overflow-hidden rounded-3xl border border-slate-700/80 bg-[linear-gradient(135deg,#0f172a,#1e293b)] px-5 py-12 text-slate-100 sm:px-8 sm:py-16"
+		class="relative mb-8 overflow-hidden rounded-3xl border border-slate-700/80 bg-[linear-gradient(140deg,#0b1220_0%,#1e293b_52%,#2c1f19_100%)] px-5 py-10 text-slate-100 sm:mb-10 sm:px-8 sm:py-14"
 		style="box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(255,255,255,0.04) inset;"
 	>
 		<div class="pointer-events-none absolute inset-0">
-			<div class="absolute -left-20 top-0 h-72 w-72 rounded-full bg-orange-500/20 blur-3xl"></div>
-			<div class="absolute right-0 top-10 h-80 w-80 rounded-full bg-amber-200/10 blur-3xl"></div>
+			<div class="absolute -left-20 top-0 h-72 w-72 rounded-full bg-orange-500/25 blur-3xl"></div>
+			<div class="absolute right-0 top-10 h-80 w-80 rounded-full bg-amber-200/15 blur-3xl"></div>
 			<div class="absolute bottom-0 left-1/3 h-52 w-52 rounded-full bg-slate-200/10 blur-2xl"></div>
+			<div class="absolute inset-0 bg-[radial-gradient(circle_at_72%_14%,rgba(251,191,36,0.2)_0%,transparent_38%)]"></div>
 			<div class="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.04),transparent_35%,rgba(255,255,255,0.03))]"></div>
 		</div>
 
 		<div class="relative z-10 max-w-3xl">
 			<p class="eyebrow text-slate-300">Quest Board For Real Life</p>
-			<h1 class="mt-2 max-w-2xl text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
-				Post local tasks. Find trusted help.
+			<h1 class="mt-2 max-w-2xl text-4xl font-black leading-[1.12] tracking-tight text-white sm:text-5xl">
+				Post Local Tasks. Find Trusted Help in Northwest Arkansas.
 			</h1>
-			<p class="mt-3 max-w-xl text-sm leading-relaxed text-slate-300 sm:mt-4 sm:max-w-2xl sm:text-lg">
-				A practical task board with quest-board energy: clear rewards, proof-based completion,
-				and a trust-first workflow.
+			<p class="mt-3 max-w-xl text-sm leading-7 text-slate-300 sm:mt-4 sm:max-w-2xl sm:text-lg">
+				A local quest board for real life. Post small jobs, offer rewards, and get help from people nearby.
 			</p>
-			<div class="mt-6 flex flex-col gap-3 sm:mt-7 sm:flex-row">
+			<div class="mt-6 flex flex-col gap-3 sm:flex-row">
 				<Button href="/tasks" variant="primary" className="w-full sm:w-auto">Browse Bounties</Button>
 				<Button href="/tasks/create" variant="ghost" className="w-full sm:w-auto">Post a Task</Button>
 			</div>
 		</div>
 	</section>
 
-	<section class="space-y-6">
-		<div>
-			<p class="eyebrow">Open Bounties</p>
+	<section class="mb-16">
+		<div class="mb-5">
+			<p class="eyebrow inline-flex rounded-full border border-(--line) bg-white/80 px-2.5 py-1 text-slate-600">
+				Open Bounties
+			</p>
 			<h2 class="text-3xl font-bold tracking-tight text-slate-900">Featured Bounties</h2>
 		</div>
 
+		<div class="mb-6 flex flex-wrap gap-2 rounded-2xl border border-(--line)/70 bg-white/55 p-2 backdrop-blur-sm sm:inline-flex">
+			{#each categoryFilters as category}
+				<FilterChip
+					active={activeCategory === category}
+					className={
+						activeCategory === category
+							? 'border-orange-300 bg-orange-100 text-orange-900 hover:border-orange-300'
+							: 'border-(--line) bg-white/85 text-slate-700 hover:border-orange-300 hover:bg-orange-50'
+					}
+					on:click={() => {
+						activeCategory = category;
+					}}
+				>
+					{category}
+				</FilterChip>
+			{/each}
+		</div>
+
 		<div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-			{#each previewTasks().slice(0, 6) as task}
+			{#each visibleTasks.slice(0, 6) as task}
 				<QuestCard
 					id={task.id}
 					title={task.title}
@@ -157,8 +194,8 @@
 		</div>
 	</section>
 
-	<section class="space-y-6">
-		<div>
+	<section class="mb-16">
+		<div class="mb-6">
 			<p class="eyebrow">How Sworn Works</p>
 			<h2 class="text-3xl font-bold tracking-tight text-slate-900">Simple, transparent flow</h2>
 		</div>
@@ -174,7 +211,7 @@
 		</div>
 	</section>
 
-	<section>
+	<section class="mb-16">
 		<Card as="section" tone="dark" className="border-slate-700/80 bg-slate-900/90 p-5 sm:p-6">
 			<div class="flex flex-wrap items-center gap-2">
 				<Badge tone="orange">Trust Model</Badge>

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import PageContainer from '$lib/components/ui/PageContainer.svelte';
@@ -9,10 +8,8 @@
 	let { data, children }: { data: LayoutServerData; children: import('svelte').Snippet } = $props();
 
 	const secondaryNav = [
-		{ label: 'Overview', href: '/dashboard', status: 'active' as const },
-		{ label: 'My Tasks', href: '/dashboard/tasks', status: 'soon' as const },
-		{ label: 'Messages', href: '/dashboard/messages', status: 'soon' as const },
-		{ label: 'Profile', href: '/profile', status: 'active' as const }
+		{ label: 'Overview', href: '/dashboard' },
+		{ label: 'Profile', href: '/dashboard/profile' }
 	];
 </script>
 
@@ -43,9 +40,6 @@
 					}`}
 				>
 					{item.label}
-					{#if item.status === 'soon'}
-						<Badge tone="slate" className="px-2 py-0.5 text-[10px]">Soon</Badge>
-					{/if}
 				</a>
 			{/each}
 		</nav>

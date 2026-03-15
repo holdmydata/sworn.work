@@ -67,7 +67,7 @@ Example usage:
 <Card
 	as="article"
 	tone="dark"
-	className="group relative border-slate-700/80 p-5 text-slate-100 transition-all duration-200 hover:-translate-y-1 hover:border-slate-500/80 hover:shadow-xl"
+	className="group relative border-slate-700/80 text-slate-100 transition duration-200 hover:scale-[1.02] hover:shadow-xl"
 	data-quest-id={id}
 >
 	{#if href}
