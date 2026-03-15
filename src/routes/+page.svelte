@@ -219,7 +219,8 @@
 			</div>
 			<h2 class="mt-3 text-3xl font-bold tracking-tight text-white">Built for trust, not just listings</h2>
 			<ul class="mt-4 space-y-2 text-sm text-slate-300">
-				<li>Escrow-funded tasks are the intended payout model.</li>
+				<li>Payments happen directly between posters and workers.</li>
+				<li>sworn.work does not process payments or provide escrow.</li>
 				<li>Proof-based completion confirms work before release.</li>
 				<li>Exact addresses stay private until assignment.</li>
 			</ul>
